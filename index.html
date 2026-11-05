@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1120">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Marcaciones">
+<meta name="description" content="Registro diario de Ingreso, Almuerzo, Retorno y Salida.">
+<title>Mis Marcaciones</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root {
+    --bg: #f1f5f9; --surface: #ffffff; --surface2: #e2e8f0; --text: #0f172a; --muted: #64748b;
+    --border: #e2e8f0; --accent: #4f46e5;
+    --c1: #16a34a; --c2: #ea580c; --c3: #0284c7; --c4: #7c3aed;
+    --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 14px rgba(15,23,42,.06); --toast: #0f172a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1120; --surface: #141c2f; --surface2: #1e293b; --text: #e2e8f0; --muted: #94a3b8;
+      --border: #24304a; --accent: #818cf8;
+      --c1: #22c55e; --c2: #fb923c; --c3: #38bdf8; --c4: #a78bfa;
+      --shadow: 0 1px 2px rgba(0,0,0,.3); --toast: #334155;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
+    padding-top: env(safe-area-inset-top);
+    user-select: none; -webkit-user-select: none;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  /* Encabezado */
+  header { display: flex; align-items: center; gap: 8px; padding: 12px 16px 6px; }
+  .title { flex: 1; min-width: 0; }
+  .title small { display: block; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+  .title h1 { margin: 2px 0 0; font-size: 22px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--surface); box-shadow: var(--shadow); position: relative; }
+  .icon-btn .dot { position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: none; }
+  .icon-btn.warn .dot { display: block; }
+  .pill { padding: 0 14px; height: 42px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; display: none; align-items: center; gap: 6px; }
+  .pill.show { display: inline-flex; }
+
+  /* Avisos */
+  #banners { padding: 0 16px; }
+  .banner { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 10px 12px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); font-size: 14px; line-height: 1.3; }
+  .banner p { margin: 0; flex: 1; }
+  .banner button.go { background: var(--accent); color: #fff; padding: 8px 12px; border-radius: 10px; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  .banner button.x { color: var(--muted); padding: 4px; }
+
+  /* Botones de marcación */
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 10px 16px; overflow-y: auto; }
+  .mark {
+    --c: var(--c1);
+    flex: 1; min-height: 82px; width: 100%; display: flex; align-items: center; gap: 14px; text-align: left;
+    padding: 12px 16px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow);
+    border: 2px solid color-mix(in srgb, var(--c) 30%, transparent);
+    transition: transform .12s ease, background-color .25s ease, border-color .25s ease;
+  }
+  .mark:active { transform: scale(.98); }
+  .mark .ico { width: 54px; height: 54px; border-radius: 17px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 15%, transparent); flex: none; }
+  .mark .ico svg { width: 30px; height: 30px; }
+  .mark .txt { flex: 1; min-width: 0; }
+  .mark .code { font-size: 12px; font-weight: 800; letter-spacing: .08em; color: var(--c); }
+  .mark .name { font-size: 19px; font-weight: 700; margin-top: 1px; }
+  .mark .hint { font-size: 12.5px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+  .mark .hint svg { width: 13px; height: 13px; }
+  .mark .time { font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 800; letter-spacing: -.01em; text-align: right; white-space: nowrap; }
+  .mark .time .s { font-size: 16px; font-weight: 700; opacity: .55; margin-left: 1px; }
+  .mark.live .time { color: var(--muted); }
+  .mark.next { border-color: var(--c); animation: glow 2.4s ease-in-out infinite; }
+  .mark.next .time { color: var(--text); }
+  @keyframes glow { 0%,100% { box-shadow: var(--shadow), 0 0 0 0 color-mix(in srgb, var(--c) 0%, transparent); } 50% { box-shadow: var(--shadow), 0 0 0 6px color-mix(in srgb, var(--c) 18%, transparent); } }
+  .mark.done { background: var(--c); border-color: var(--c); color: #fff; }
+  .mark.done .ico { background: rgba(255,255,255,.2); color: #fff; }
+  .mark.done .code, .mark.done .hint { color: rgba(255,255,255,.88); }
+  .mark.empty .time { color: var(--muted); opacity: .6; }
+  .mark.pop { animation: pop .35s ease; }
+  @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+  .m1 { --c: var(--c1); } .m2 { --c: var(--c2); } .m3 { --c: var(--c3); } .m4 { --c: var(--c4); }
+
+  /* Resumen */
+  #summary { display: flex; gap: 8px; padding: 0 16px 8px; }
+  .stat { flex: 1; background: var(--surface); border-radius: 14px; padding: 8px 10px; box-shadow: var(--shadow); min-width: 0; }
+  .stat small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat b { font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* Barra de fechas */
+  nav { background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); }
+  #days { flex: 1; display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; padding: 0 8px; scrollbar-width: none; }
+  #days::-webkit-scrollbar { display: none; }
+  .day { flex: none; width: 52px; padding: 6px 0 7px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 1px; scroll-snap-align: center; color: var(--muted); }
+  .day .wd { font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .day .dn { font-size: 19px; font-weight: 800; color: var(--text); line-height: 1.15; }
+  .day .mo { font-size: 10px; font-weight: 600; }
+  .day .dots { display: flex; gap: 3px; margin-top: 3px; }
+  .day .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--surface2); }
+  .day .dots i.on:nth-child(1) { background: var(--c1); } .day .dots i.on:nth-child(2) { background: var(--c2); }
+  .day .dots i.on:nth-child(3) { background: var(--c3); } .day .dots i.on:nth-child(4) { background: var(--c4); }
+  .day.today .wd { color: var(--accent); }
+  .day.sel { background: var(--accent); color: rgba(255,255,255,.85); }
+  .day.sel .dn { color: #fff; }
+  .day.sel .dots i { background: rgba(255,255,255,.3); }
+  .day.sel .dots i.on { background: #fff; }
+  .day.wknd:not(.sel) .dn { opacity: .55; }
+  .cal { width: 48px; height: 56px; display: grid; place-items: center; color: var(--muted); border-left: 1px solid var(--border); flex: none; position: relative; }
+  .cal input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; }
+
+  /* Ventanas */
+  .overlay { position: fixed; inset: 0; background: rgba(2,6,23,.55); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
+  .overlay.open { display: flex; animation: fade .2s ease; }
+  @keyframes fade { from { opacity: 0; } }
+  .sheet { width: 100%; max-width: 520px; background: var(--surface); border-radius: 24px 24px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); animation: up .25s ease; user-select: text; }
+  @keyframes up { from { transform: translateY(40px); } }
+  .sheet h2 { margin: 0 0 2px; font-size: 20px; }
+  .sheet .sub { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+  .sheet input[type=time] { width: 100%; font: inherit; font-size: 40px; font-weight: 800; text-align: center; padding: 10px; border-radius: 16px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-variant-numeric: tabular-nums; }
+  .sheet input[type=time]:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 10px; margin-top: 14px; }
+  .btn { flex: 1; padding: 14px; border-radius: 14px; font-weight: 700; font-size: 16px; background: var(--surface2); }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.danger { background: transparent; color: #ef4444; border: 2px solid color-mix(in srgb, #ef4444 40%, transparent); }
+  .menu-item { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 4px; border-bottom: 1px solid var(--border); text-align: left; font-size: 16px; }
+  .menu-item:last-child { border-bottom: 0; }
+  .menu-item span { flex: 1; }
+  .menu-item em { font-style: normal; color: var(--muted); font-size: 13px; }
+  .switch { width: 46px; height: 28px; border-radius: 14px; background: var(--surface2); position: relative; transition: background .2s; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { transform: translateX(18px); }
+  .note { font-size: 12.5px; color: var(--muted); line-height: 1.4; margin-top: 10px; }
+
+  #toast { position: fixed; left: 16px; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); background: var(--toast); color: #fff; border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; font-size: 14.5px; box-shadow: 0 8px 30px rgba(0,0,0,.35); transform: translateY(20px); opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 30; max-width: 520px; margin: 0 auto; }
+  #toast.show { transform: none; opacity: 1; pointer-events: auto; }
+  #toast span { flex: 1; }
+  #toast button { color: #a5b4fc; font-weight: 800; padding: 4px 6px; }
+
+  /* Feriados */
+  :root { --hol: #e11d48; }
+  @media (prefers-color-scheme: dark) { :root { --hol: #fb7185; } }
+  .day.hol:not(.sel) { background: color-mix(in srgb, var(--hol) 14%, transparent); }
+  .day.hol .wd { color: var(--hol); }
+  .day.hol.sel { background: var(--hol); }
+  .holiday-note { display: flex; align-items: center; gap: 10px; margin: 8px 16px 0; padding: 10px 12px; border-radius: 14px; font-size: 14px; font-weight: 600; color: var(--hol); background: color-mix(in srgb, var(--hol) 12%, transparent); }
+  .holiday-note span { flex: 1; }
+  .holiday-note button { font-weight: 800; font-size: 13px; color: var(--hol); padding: 4px 6px; }
+
+  /* Cronograma */
+  .sheet.tall { max-height: calc(100dvh - 24px - env(safe-area-inset-top)); overflow-y: auto; }
+  .sheet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .sheet-head h2 { flex: 1; }
+  .seg { display: flex; background: var(--surface2); border-radius: 12px; padding: 3px; margin-bottom: 12px; }
+  .seg button { flex: 1; padding: 9px 6px; border-radius: 10px; font-weight: 700; font-size: 14px; color: var(--muted); }
+  .seg button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .seg button.on.holmode { color: var(--hol); }
+  .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .month-nav b { font-size: 17px; }
+  .month-nav button { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--surface2); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-grid .wh { text-align: center; font-size: 11px; font-weight: 800; color: var(--muted); padding: 4px 0; }
+  .cd { aspect-ratio: 1 / 1.08; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: var(--bg); font-weight: 700; font-size: 15px; position: relative; }
+  .cd.out { visibility: hidden; }
+  .cd.wk { color: var(--muted); }
+  .cd.future { opacity: .75; }
+  .cd.today { box-shadow: inset 0 0 0 2px var(--accent); }
+  .cd.sel { background: var(--accent); color: #fff; }
+  .cd.hol { background: color-mix(in srgb, var(--hol) 16%, transparent); color: var(--hol); }
+  .cd.hol::after { content: "Feriado"; font-size: 8.5px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
+  .cd.hol .dots { display: none; }
+  .cd .dots { display: flex; gap: 2px; }
+  .cd .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--surface2); }
+  .cd .dots i.on:nth-child(1) { background: var(--c1); } .cd .dots i.on:nth-child(2) { background: var(--c2); }
+  .cd .dots i.on:nth-child(3) { background: var(--c3); } .cd .dots i.on:nth-child(4) { background: var(--c4); }
+  .cd.sel .dots i { background: rgba(255,255,255,.3); } .cd.sel .dots i.on { background: #fff; }
+  .month-stats { display: flex; gap: 8px; margin-top: 12px; }
+  .month-stats .stat { background: var(--bg); box-shadow: none; }
+  .hol-list { margin-top: 10px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .hol-list b { color: var(--hol); }
+
+  @media (max-height: 620px) {
+    .mark { min-height: 70px; padding: 8px 14px; } .mark .ico { width: 46px; height: 46px; }
+    .mark .time { font-size: 26px; } .mark .hint { display: none; } main { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <small id="subtitle">Hoy</small>
+    <h1 id="dateTitle">—</h1>
+  </div>
+  <button class="pill" id="todayBtn">Hoy</button>
+  <button class="icon-btn" id="menuBtn" aria-label="Menú">
+    <svg class="i" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+    <span class="dot"></span>
+  </button>
+</header>
+
+<div id="banners"></div>
+<div id="holNote" class="holiday-note" hidden><span>🎉 Feriado — sin recordatorios</span><button id="holNoteOff">Quitar</button></div>
+
+<main id="marks"></main>
+
+<section id="summary">
+  <div class="stat"><small>Trabajado</small><b id="sWork">0h 00m</b></div>
+  <div class="stat"><small>Almuerzo</small><b id="sLunch">—</b></div>
+  <div class="stat"><small id="sExitLbl">Salida 9h</small><b id="sExit">—</b></div>
+</section>
+
+<nav>
+  <div id="days"></div>
+  <button class="cal" id="calBtn" aria-label="Cronograma">
+    <svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+  </button>
+</nav>
+
+<!-- Cronograma -->
+<div class="overlay" id="calOv">
+  <div class="sheet tall">
+    <div class="sheet-head">
+      <h2>Cronograma</h2>
+      <button class="icon-btn" id="calClose" aria-label="Cerrar"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="seg">
+      <button id="modeView" class="on">Ver marcaciones</button>
+      <button id="modeHol">🎉 Marcar feriados</button>
+    </div>
+    <div class="month-nav">
+      <button id="mPrev" aria-label="Mes anterior"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+      <b id="mTitle">—</b>
+      <button id="mNext" aria-label="Mes siguiente"><svg class="i" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="note" id="calHint"></div>
+    <div class="month-stats">
+      <div class="stat"><small>Trabajados</small><b id="msDays">0</b></div>
+      <div class="stat"><small>Horas del mes</small><b id="msHours">0h 00m</b></div>
+      <div class="stat"><small>Feriados</small><b id="msHol">0</b></div>
+    </div>
+    <div class="hol-list" id="holList"></div>
+  </div>
+</div>
+
+<!-- Editar marcación -->
+<div class="overlay" id="editOv">
+  <div class="sheet">
+    <h2 id="editTitle">Editar</h2>
+    <div class="sub" id="editSub"></div>
+    <input type="time" id="editTime">
+    <div class="row">
+      <button class="btn" id="editCancel">Cancelar</button>
+      <button class="btn primary" id="editSave">Guardar</button>
+    </div>
+    <div class="row"><button class="btn danger" id="editDel">Eliminar marcación</button></div>
+  </div>
+</div>
+
+<!-- Menú -->
+<div class="overlay" id="menuOv">
+  <div class="sheet">
+    <h2>Ajustes</h2>
+    <div class="sub">Recordatorios y respaldo de tus datos</div>
+    <button class="menu-item" id="mNotif">
+      <svg class="i" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <span>Notificaciones<br><em id="mNotifState">—</em></span>
+    </button>
+    <button class="menu-item" id="mTest">
+      <svg class="i" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      <span>Enviar notificación de prueba</span>
+    </button>
+    <button class="menu-item" id="mWeek">
+      <svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>Recordar solo de lunes a viernes</span>
+      <i class="switch" id="mWeekSw"></i>
+    </button>
+    <button class="menu-item" id="mInstall" style="display:none">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+      <span>Instalar en el celular</span>
+    </button>
+    <button class="menu-item" id="mCsv">
+      <svg class="i" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h8M8 17h8"/></svg>
+      <span>Exportar a Excel (CSV)</span>
+    </button>
+    <button class="menu-item" id="mBackup">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+      <span>Descargar respaldo</span>
+    </button>
+    <label class="menu-item" id="mRestore">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+      <span>Restaurar respaldo</span>
+      <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+    </label>
+    <p class="note">Tus marcaciones se guardan solo en este celular. Descarga un respaldo de vez en cuando.<br>
+      <span id="noteReminders">Los recordatorios llegan mientras la app esté abierta o en segundo plano; si el sistema la cierra, al abrirla de nuevo se avisan los pendientes.</span><br>
+      Los días marcados como feriado en el Cronograma no tienen recordatorios.</p>
+  </div>
+</div>
+
+<div id="toast"><span id="toastMsg"></span><button id="toastUndo">Deshacer</button></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Definición de marcaciones ----------
+  const ICONS = {
+    f1: '<path d="M12 2v8"/><path d="m8 6 4-4 4 4"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="M16 18a4 4 0 0 0-8 0"/>',
+    f2: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+    f3: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
+    f4: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+  };
+  const MARKS = [
+    { k: 'f1', code: 'F1', name: 'Ingreso' },
+    { k: 'f2', code: 'F2', name: 'Almuerzo' },
+    { k: 'f3', code: 'F3', name: 'Retorno almuerzo' },
+    { k: 'f4', code: 'F4', name: 'Salida' }
+  ];
+  const PENCIL = '<svg class="i" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></svg>';
+  const HAND = '<svg class="i" viewBox="0 0 24 24"><path d="M9 11V6a2 2 0 0 1 4 0v5"/><path d="M13 10a2 2 0 0 1 4 0v2"/><path d="M17 11a2 2 0 0 1 4 0v4a6 6 0 0 1-6 6h-2a6 6 0 0 1-5-2.7L4.6 15a2 2 0 0 1 3.2-2.4L9 14"/></svg>';
+  const PLUS = '<svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
+
+  // ---------- Utilidades ----------
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, '0');
+  const keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parseKey = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const todayKey = () => keyOf(new Date());
+  const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const fromMin = (m) => { m = ((m % 1440) + 1440) % 1440; return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`; };
+  const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+  const dur = (m) => `${Math.floor(m / 60)}h ${pad(m % 60)}m`;
+  const WD = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const MO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  const load = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } };
+  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+  let db = load('marcaciones.v1', {});          // { "2026-11-05": { f1:"08:01", f2:"13:02", ... } }
+  let sent = load('marcaciones.avisos', {});    // recordatorios ya enviados por día
+  let settings = load('marcaciones.ajustes', { weekdaysOnly: true });
+  let hol = load('marcaciones.feriados', {});   // { "2026-12-25": true }
+  const saveDb = () => store('marcaciones.v1', db);
+  const isHoliday = (k) => !!hol[k];
+  function setHoliday(k, on) {
+    if (on) hol[k] = true; else delete hol[k];
+    store('marcaciones.feriados', hol);
+    updateChip(k);
+    render();
+    checkReminders();
+  }
+
+
+  let selected = todayKey();
+  let lastToday = selected;
+
+  // ---------- Botones ----------
+  const marksEl = $('marks');
+  const btns = {};
+  MARKS.forEach((m, i) => {
+    const b = document.createElement('button');
+    b.className = `mark m${i + 1}`;
+    b.innerHTML = `
+      <div class="ico"><svg class="i" viewBox="0 0 24 24">${ICONS[m.k]}</svg></div>
+      <div class="txt"><div class="code">${m.code}</div><div class="name">${m.name}</div><div class="hint"></div></div>
+      <div class="time"></div>`;
+    b.addEventListener('click', () => onTap(m.k));
+    marksEl.appendChild(b);
+    btns[m.k] = b;
+  });
+
+  function onTap(k) {
+    const day = db[selected] || {};
+    if (day[k]) return openEdit(k);
+    if (selected !== todayKey()) return openEdit(k);
+    const d = new Date();
+    const t = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    setMark(selected, k, t);
+    navigator.vibrate?.(40);
+    btns[k].classList.remove('pop'); void btns[k].offsetWidth; btns[k].classList.add('pop');
+    const m = MARKS.find((x) => x.k === k);
+    const dayKey = selected;
+    toast(`${m.code} ${m.name} marcado a las ${t}`, () => setMark(dayKey, k, null));
+  }
+
+  function setMark(dayKey, k, t) {
+    const day = db[dayKey] || {};
+    if (t) day[k] = t; else delete day[k];
+    if (Object.keys(day).length) db[dayKey] = day; else delete db[dayKey];
+    saveDb();
+    render();
+    updateChip(dayKey);
+    checkReminders();
+  }
+
+  // ---------- Pintar pantalla ----------
+  function render() {
+    const tk = todayKey();
+    const isToday = selected === tk;
+    const day = db[selected] || {};
+    const date = parseKey(selected);
+    const now = new Date();
+
+    let title = cap(date.toLocaleDateString('es-EC', { weekday: isToday ? 'long' : 'short', day: 'numeric', month: 'long' }));
+    if (date.getFullYear() !== now.getFullYear()) title += ` ${date.getFullYear()}`;
+    $('dateTitle').textContent = title;
+    const diff = Math.round((parseKey(tk) - date) / 86400000);
+    $('subtitle').textContent = diff === 0 ? 'Hoy' : diff === 1 ? 'Ayer' : `Hace ${diff} días`;
+    $('todayBtn').classList.toggle('show', !isToday);
+
+    const nextK = isToday ? MARKS.find((m) => !day[m.k])?.k : null;
+    MARKS.forEach((m) => {
+      const b = btns[m.k], t = day[m.k];
+      b.classList.toggle('done', !!t);
+      b.classList.toggle('live', !t && isToday);
+      b.classList.toggle('empty', !t && !isToday);
+      b.classList.toggle('next', m.k === nextK);
+      const time = b.querySelector('.time'), hint = b.querySelector('.hint');
+      if (t) {
+        time.textContent = t;
+        hint.innerHTML = `${PENCIL} Toca para editar`;
+      } else if (isToday) {
+        time.innerHTML = `${pad(now.getHours())}:${pad(now.getMinutes())}<span class="s">:${pad(now.getSeconds())}</span>`;
+        hint.innerHTML = `${HAND} Toca para marcar`;
+      } else {
+        time.textContent = '--:--';
+        hint.innerHTML = `${PLUS} Sin marcación · toca para agregar`;
+      }
+    });
+    renderSummary(day, isToday);
+    $('holNote').hidden = !isHoliday(selected);
+  }
+
+  const span = (a, b) => (a != null && b != null) ? Math.max(0, b - a) : 0;
+  // Minutos trabajados: (F2 - F1) + (F4 - F3). Sin almuerzo: F4 - F1. "live" = hora actual si es hoy.
+  function worked(d, live) {
+    const m = (k) => d[k] ? toMin(d[k]) : null;
+    let w = 0;
+    if (d.f1) w += span(m('f1'), m('f2') ?? (d.f3 ? null : (m('f4') ?? live)));
+    if (d.f3) w += span(m('f3'), m('f4') ?? live);
+    return w;
+  }
+
+  function renderSummary(d, isToday) {
+    const live = isToday ? nowMin() : null;
+    const m = (k) => d[k] ? toMin(d[k]) : null;
+    $('sWork').textContent = (d.f1 || d.f3) ? dur(worked(d, live)) : '—';
+
+    if (d.f2 && d.f3) $('sLunch').textContent = dur(span(m('f2'), m('f3')));
+    else if (d.f2 && live != null && !d.f4) $('sLunch').textContent = dur(span(m('f2'), live)) + '…';
+    else $('sLunch').textContent = '—';
+
+    if (d.f4) { $('sExitLbl').textContent = 'Salida'; $('sExit').textContent = d.f4; }
+    else { $('sExitLbl').textContent = 'Salida 9h'; $('sExit').textContent = d.f1 ? fromMin(m('f1') + 540) : '—'; }
+  }
+
+  // ---------- Barra de fechas ----------
+  const daysEl = $('days');
+  function buildBar() {
+    const today = parseKey(todayKey());
+    let start = new Date(today); start.setDate(start.getDate() - 60);
+    const keys = Object.keys(db).sort();
+    if (keys[0] && parseKey(keys[0]) < start) start = parseKey(keys[0]);
+    if (parseKey(selected) < start) start = parseKey(selected);
+    const frag = document.createDocumentFragment();
+    for (const d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+      const k = keyOf(d);
+      const c = document.createElement('button');
+      c.className = 'day';
+      c.dataset.k = k;
+      if (k === keyOf(today)) c.classList.add('today');
+      if (d.getDay() === 0 || d.getDay() === 6) c.classList.add('wknd');
+      c.innerHTML = `<span class="wd">${k === keyOf(today) ? 'hoy' : WD[d.getDay()]}</span><span class="dn">${d.getDate()}</span><span class="mo">${MO[d.getMonth()]}</span><span class="dots"><i></i><i></i><i></i><i></i></span>`;
+      c.addEventListener('click', () => select(k));
+      frag.appendChild(c);
+    }
+    daysEl.replaceChildren(frag);
+    daysEl.querySelectorAll('.day').forEach((c) => updateChip(c.dataset.k));
+    markSelected(false);
+  }
+  function updateChip(k) {
+    const c = daysEl.querySelector(`[data-k="${k}"]`);
+    if (!c) return;
+    const d = db[k] || {};
+    c.querySelectorAll('.dots i').forEach((dot, i) => dot.classList.toggle('on', !!d[MARKS[i].k]));
+    c.classList.toggle('hol', isHoliday(k));
+  }
+  function markSelected(smooth) {
+    daysEl.querySelectorAll('.day').forEach((c) => c.classList.toggle('sel', c.dataset.k === selected));
+    const c = daysEl.querySelector(`[data-k="${selected}"]`);
+    if (c) daysEl.scrollTo({ left: c.offsetLeft - daysEl.clientWidth / 2 + c.offsetWidth / 2, behavior: smooth ? 'smooth' : 'auto' });
+  }
+  function select(k) {
+    if (k > todayKey()) k = todayKey();
+    const needRebuild = !daysEl.querySelector(`[data-k="${k}"]`);
+    selected = k;
+    if (needRebuild) buildBar(); else markSelected(true);
+    render();
+  }
+  $('todayBtn').addEventListener('click', () => select(todayKey()));
+  $('holNoteOff').addEventListener('click', () => { const k = selected; setHoliday(k, false); toast('Feriado quitado', () => setHoliday(k, true)); });
+
+  // ---------- Cronograma (calendario mensual + feriados) ----------
+  const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  let calMonth = null;     // Date en el día 1 del mes que se muestra
+  let calMode = 'view';    // 'view' | 'hol'
+  function openCal() {
+    const d = parseKey(selected);
+    calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    setCalMode('view');
+    $('calOv').classList.add('open');
+  }
+  function setCalMode(m) {
+    calMode = m;
+    $('modeView').classList.toggle('on', m === 'view');
+    $('modeHol').classList.toggle('on', m === 'hol');
+    $('modeHol').classList.toggle('holmode', m === 'hol');
+    $('calHint').textContent = m === 'view'
+      ? 'Toca un día para ver o corregir sus marcaciones.'
+      : 'Toca los días que son feriado o día libre (también futuros). Esos días no sonarán los recordatorios. Toca de nuevo para quitarlo.';
+    renderCal();
+  }
+  function renderCal() {
+    const y = calMonth.getFullYear(), mo = calMonth.getMonth();
+    $('mTitle').textContent = `${MONTHS[mo]} ${y}`;
+    const tk = todayKey();
+    const grid = $('calGrid');
+    const frag = document.createDocumentFragment();
+    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach((w) => { const e = document.createElement('div'); e.className = 'wh'; e.textContent = w; frag.appendChild(e); });
+    const offset = (new Date(y, mo, 1).getDay() + 6) % 7;   // semana empieza en lunes
+    for (let i = 0; i < offset; i++) { const e = document.createElement('div'); e.className = 'cd out'; frag.appendChild(e); }
+    const last = new Date(y, mo + 1, 0).getDate();
+    let days = 0, mins = 0, hols = 0;
+    const holNames = [];
+    for (let n = 1; n <= last; n++) {
+      const date = new Date(y, mo, n), k = keyOf(date), d = db[k] || {};
+      const c = document.createElement('button');
+      c.className = 'cd';
+      if (date.getDay() === 0 || date.getDay() === 6) c.classList.add('wk');
+      if (k > tk) c.classList.add('future');
+      if (k === tk) c.classList.add('today');
+      if (calMode === 'view' && k === selected) c.classList.add('sel');
+      if (isHoliday(k)) { c.classList.add('hol'); hols++; holNames.push(`${WD[date.getDay()]} ${n}`); }
+      c.innerHTML = `<span>${n}</span><span class="dots">${MARKS.map((m) => `<i class="${d[m.k] ? 'on' : ''}"></i>`).join('')}</span>`;
+      c.addEventListener('click', () => onCalDay(k));
+      frag.appendChild(c);
+      const w = worked(d, k === tk ? nowMin() : null);
+      if (d.f1 || d.f2 || d.f3 || d.f4) days++;
+      mins += w;
+    }
+    grid.replaceChildren(frag);
+    $('msDays').textContent = days;
+    $('msHours').textContent = dur(mins);
+    $('msHol').textContent = hols;
+    $('holList').innerHTML = hols ? `Feriados de ${MONTHS[mo].toLowerCase()}: <b>${holNames.join(' · ')}</b>` : '';
+  }
+  function onCalDay(k) {
+    if (calMode === 'hol') {
+      setHoliday(k, !isHoliday(k));
+      renderCal();
+      return;
+    }
+    if (k > todayKey()) { toast('Es un día futuro. Usa "Marcar feriados" para marcarlo como feriado.'); return; }
+    select(k);
+    $('calOv').classList.remove('open');
+  }
+  $('calBtn').addEventListener('click', openCal);
+  $('calClose').addEventListener('click', () => $('calOv').classList.remove('open'));
+  $('modeView').addEventListener('click', () => setCalMode('view'));
+  $('modeHol').addEventListener('click', () => setCalMode('hol'));
+  $('mPrev').addEventListener('click', () => { calMonth.setMonth(calMonth.getMonth() - 1); renderCal(); });
+  $('mNext').addEventListener('click', () => { calMonth.setMonth(calMonth.getMonth() + 1); renderCal(); });
+
+  // ---------- Editar ----------
+  let editing = null;
+  function openEdit(k) {
+    editing = k;
+    const m = MARKS.find((x) => x.k === k);
+    const t = (db[selected] || {})[k];
+    $('editTitle').textContent = `${t ? 'Editar' : 'Agregar'} ${m.code} · ${m.name}`;
+    $('editSub').textContent = cap(parseKey(selected).toLocaleDateString('es-EC', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+    $('editTime').value = t || (selected === todayKey() ? fromMin(nowMin()) : '');
+    $('editDel').parentElement.style.display = t ? '' : 'none';
+    $('editOv').classList.add('open');
+  }
+  const closeEdit = () => { $('editOv').classList.remove('open'); editing = null; };
+  $('editCancel').addEventListener('click', closeEdit);
+  $('editSave').addEventListener('click', () => {
+    const v = $('editTime').value;
+    if (!v) { $('editTime').focus(); return; }
+    setMark(selected, editing, v.slice(0, 5));
+    closeEdit();
+  });
+  $('editDel').addEventListener('click', () => {
+    const k = editing, prev = db[selected]?.[k], dayKey = selected;
+    setMark(selected, k, null);
+    closeEdit();
+    toast('Marcación eliminada', () => setMark(dayKey, k, prev));
+  });
+  document.querySelectorAll('.overlay').forEach((o) => o.addEventListener('click', (e) => { if (e.target === o) o.classList.remove('open'); }));
+
+  // ---------- Aviso emergente ----------
+  let toastTimer;
+  function toast(msg, undo) {
+    $('toastMsg').textContent = msg;
+    const u = $('toastUndo');
+    u.style.display = undo ? '' : 'none';
+    u.onclick = () => { undo?.(); hideToast(); };
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 4500);
+  }
+  const hideToast = () => $('toast').classList.remove('show');
+
+  // ---------- Notificaciones ----------
+  const hasNotif = 'Notification' in window;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let swReg = null;
+
+  // Permiso: 'granted' | 'denied' | 'prompt' | 'unsupported'
+  const notifPerm = () => hasNotif ? (Notification.permission === 'default' ? 'prompt' : Notification.permission) : 'unsupported';
+
+  async function notify(title, body, tag) {
+    toast(`${title} — ${body}`);
+    if (!hasNotif || Notification.permission !== 'granted') return;
+    const opts = { body, tag, icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', vibrate: [200, 100, 200], renotify: true, requireInteraction: true };
+    try {
+      if (swReg) await swReg.showNotification(title, opts);
+      else new Notification(title, opts);
+    } catch (e) { console.warn(e); }
+  }
+
+  // Reglas de recordatorio de un día. Devuelve lo que debería sonar y cuándo.
+  function reminderRules(k) {
+    const date = parseKey(k);
+    if (settings.weekdaysOnly && (date.getDay() === 0 || date.getDay() === 6)) return [];
+    if (isHoliday(k)) return [];
+    const d = db[k] || {};
+    const base = Number(k.replace(/-/g, '')) * 10;
+    const at = (min) => { const x = new Date(date); x.setHours(0, min, 0, 0); return x; };
+    const out = [];
+    // 1) 8:30 sin ninguna marcación
+    if (!(d.f1 || d.f2 || d.f3 || d.f4))
+      out.push({ id: base + 1, n: 'r1', stamp: '1', at: at(510), until: at(810),
+        title: '⏰ ¿Ya marcaste tu ingreso?', body: 'Son las 8:30 y aún no registras ninguna marcación.' });
+    // 2) 13:30 sin almuerzo
+    if (!d.f2 && !d.f3 && !d.f4)
+      out.push({ id: base + 2, n: 'r2', stamp: '1', at: at(810), until: at(1020),
+        title: '🍽️ Hora de almuerzo', body: 'Es la 1:30 pm y no has marcado tu salida a Almuerzo (F2).' });
+    // 3) 1 hora después del almuerzo sin retorno
+    if (d.f2 && !d.f3 && !d.f4)
+      out.push({ id: base + 3, n: 'r3', stamp: d.f2, at: at(toMin(d.f2) + 60), until: null,
+        title: '💼 ¿Ya regresaste del almuerzo?', body: `Pasó 1 hora desde tu almuerzo (${d.f2}) y no has marcado el Retorno (F3).` });
+    // 4) 9 horas después del ingreso sin salida
+    if (d.f1 && !d.f4)
+      out.push({ id: base + 4, n: 'r4', stamp: d.f1, at: at(toMin(d.f1) + 540), until: null,
+        title: '🏠 Ya cumpliste 9 horas', body: `Ingresaste a las ${d.f1} y aún no marcas tu Salida (F4).` });
+    return out;
+  }
+
+  function checkReminders() {
+    const now = new Date(), k = keyOf(now);
+    const s = sent[k] || {};
+    for (const r of reminderRules(k)) {
+      if (now >= r.at && (!r.until || now < r.until) && s[r.n] !== r.stamp) {
+        s[r.n] = r.stamp; sent = { [k]: s }; store('marcaciones.avisos', sent);
+        notify(r.title, r.body, r.n);
+      }
+    }
+  }
+
+  async function askPermission() {
+    if (!hasNotif) {
+      toast(isIOS && !isStandalone ? 'En iPhone primero instala la app: Compartir → Agregar a inicio.' : 'Este navegador no permite notificaciones.');
+      return;
+    }
+    const r = await Notification.requestPermission();
+    if (r === 'granted') { toast('¡Listo! Recibirás los recordatorios.'); checkReminders(); }
+    else if (r === 'denied') toast('Notificaciones bloqueadas. Actívalas en los ajustes del navegador.');
+    renderBanners(); renderMenu();
+  }
+
+  // ---------- Instalación (solo versión web) ----------
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; renderBanners(); renderMenu(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; store('marcaciones.instalada', true); renderBanners(); renderMenu(); });
+  async function doInstall() {
+    if (installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; renderBanners(); renderMenu(); }
+    else if (isIOS) toast('En Safari toca Compartir ⬆️ y luego "Agregar a inicio".');
+    else toast('Abre el menú ⋮ del navegador y elige "Instalar app" o "Agregar a pantalla principal".');
+  }
+
+  // ---------- Avisos superiores ----------
+  let dismissed = load('marcaciones.cerrados', {});
+  function renderBanners() {
+    const el = $('banners');
+    el.innerHTML = '';
+    const add = (id, text, label, action) => {
+      if (dismissed[id]) return;
+      const b = document.createElement('div');
+      b.className = 'banner';
+      b.innerHTML = `<p>${text}</p>${label ? `<button class="go">${label}</button>` : ''}<button class="x" aria-label="Cerrar"><svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`;
+      if (label) b.querySelector('.go').onclick = action;
+      b.querySelector('.x').onclick = () => { dismissed[id] = true; store('marcaciones.cerrados', dismissed); renderBanners(); };
+      el.appendChild(b);
+    };
+    const perm = notifPerm();
+    if (!isStandalone && installEvt) add('install', '📲 Instala la app en tu celular para usarla como una aplicación.', 'Instalar', doInstall);
+    else if (!isStandalone && isIOS) add('install-ios', '📲 Para instalarla: toca <b>Compartir</b> y luego <b>Agregar a inicio</b>.', null);
+    if (perm === 'prompt') add('notif', '🔔 Activa las notificaciones para recibir tus recordatorios.', 'Activar', askPermission);
+    $('menuBtn').classList.toggle('warn', perm !== 'granted');
+  }
+
+  // ---------- Menú ----------
+  function renderMenu() {
+    const perm = notifPerm();
+    let st;
+    if (perm === 'unsupported') st = isIOS && !isStandalone ? 'En iPhone: instala la app primero' : 'No disponible en este navegador';
+    else st = { granted: 'Activadas ✅', denied: 'Bloqueadas — habilítalas en ajustes del navegador', prompt: 'Toca para activar' }[perm];
+    $('mNotifState').textContent = st;
+    $('mWeekSw').classList.toggle('on', !!settings.weekdaysOnly);
+    $('mInstall').style.display = isStandalone ? 'none' : '';
+  }
+  $('menuBtn').addEventListener('click', () => { renderMenu(); $('menuOv').classList.add('open'); });
+  $('mNotif').addEventListener('click', askPermission);
+  $('mTest').addEventListener('click', async () => {
+    if (notifPerm() === 'prompt') await askPermission();
+    notify('🔔 Prueba', 'Así se verán tus recordatorios de marcación.', 'test');
+  });
+  $('mWeek').addEventListener('click', () => { settings.weekdaysOnly = !settings.weekdaysOnly; store('marcaciones.ajustes', settings); renderMenu(); checkReminders(); });
+  $('mInstall').addEventListener('click', doInstall);
+
+  // Guardar archivos (descarga)
+  async function saveFile(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  $('mCsv').addEventListener('click', () => {
+    const rows = [['Fecha', 'Día', 'F1 Ingreso', 'F2 Almuerzo', 'F3 Retorno', 'F4 Salida', 'Horas trabajadas', 'Feriado']];
+    const keys = [...new Set([...Object.keys(db), ...Object.keys(hol)])].sort();
+    keys.forEach((k) => {
+      const d = db[k] || {}, w = worked(d, null);
+      rows.push([k, WD[parseKey(k).getDay()], d.f1 || '', d.f2 || '', d.f3 || '', d.f4 || '', w ? `${Math.floor(w / 60)}:${pad(w % 60)}` : '', isHoliday(k) ? 'Sí' : '']);
+    });
+    saveFile(`marcaciones-${todayKey()}.csv`, '﻿' + rows.map((r) => r.join(';')).join('\r\n'), 'text/csv;charset=utf-8');
+  });
+  $('mBackup').addEventListener('click', () => saveFile(`respaldo-marcaciones-${todayKey()}.json`,
+    JSON.stringify({ app: 'marcaciones', v: 2, data: db, feriados: hol }, null, 2), 'application/json'));
+  $('restoreFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const isDay = (k) => /^\d{4}-\d{2}-\d{2}$/.test(k);
+    try {
+      const j = JSON.parse(await f.text());
+      const data = j.data || j;
+      if (typeof data !== 'object') throw 0;
+      const n = Object.keys(data).filter(isDay).length;
+      const fer = (j.feriados && typeof j.feriados === 'object') ? Object.keys(j.feriados).filter(isDay) : [];
+      if (!n && !fer.length) throw 0;
+      if (!confirm(`¿Restaurar ${n} días y ${fer.length} feriados? Se combinarán con tus datos actuales.`)) return;
+      for (const k in data) if (isDay(k)) db[k] = { ...(db[k] || {}), ...data[k] };
+      fer.forEach((k) => { hol[k] = true; });
+      saveDb(); store('marcaciones.feriados', hol);
+      buildBar(); render(); checkReminders();
+      $('menuOv').classList.remove('open');
+      toast(`Respaldo restaurado (${n} días, ${fer.length} feriados)`);
+    } catch { toast('El archivo no es un respaldo válido.'); }
+    e.target.value = '';
+  });
+
+  // ---------- Reloj ----------
+  function tick() {
+    const tk = todayKey();
+    if (tk !== lastToday) {           // cambió el día (medianoche)
+      if (selected === lastToday) selected = tk;
+      lastToday = tk;
+      buildBar();
+      checkReminders();
+    }
+    if (selected === tk) render();
+  }
+  function startClock() {
+    tick();
+    setTimeout(() => { tick(); setInterval(tick, 1000); }, 1000 - (Date.now() % 1000));
+  }
+  setInterval(checkReminders, 20000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); checkReminders(); } });
+
+  // ---------- Inicio ----------
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then((r) => { swReg = r; return navigator.serviceWorker.ready; })
+      .then((r) => { swReg = r; }).catch((e) => console.warn('SW', e));
+  }
+  navigator.storage?.persist?.();
+  buildBar();
+  render();
+  renderBanners();
+  startClock();
+  setTimeout(checkReminders, 1500);
+})();
+</script>
+</body>
+</html>
